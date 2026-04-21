@@ -1,36 +1,38 @@
-# taiga-back/docker/Dockerfile — ARM64-compatible patch
-#
-# Changes from upstream:
-#   1. Switch base image to python:3.11-slim-bookworm (multi-arch, has arm64)
-#   2. Install build deps for native extensions on ARM
-#   3. Use psycopg2-binary instead of psycopg2 (no libpq-dev compile needed)
-#
-# Apply this by replacing taiga-back/docker/Dockerfile in your fork
-# with the content below.
-#
-# The requirements.txt change (psycopg2 -> psycopg2-binary) must also be made.
+FROM python:3.11-slim
+LABEL maintainer="support@taiga.io"
 
-FROM python:3.11-slim-bookworm
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONFAULTHANDLER=1
 
-# Build deps — needed on ARM for some pip packages
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    libffi-dev \
-    libssl-dev \
-    libpq-dev \
-    git \
-    gettext \
-    && rm -rf /var/lib/apt/lists/*
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
 
-WORKDIR /taiga-back
+COPY . /taiga-protected
+WORKDIR /taiga-protected
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y \
+       build-essential \
+       git \
+       ca-certificates \
+       su-exec; \
+    python -m pip install --upgrade pip; \
+    python -m pip install wheel; \
+    python -m pip install -r requirements.txt; \
+    chmod +x docker/entrypoint.sh; \
+    groupadd --system taiga --gid=999; \
+    useradd --system --no-create-home --gid taiga --uid=999 --shell=/bin/bash taiga; \
+    chown -R taiga:taiga /taiga-protected; \
+    apt-get purge -y build-essential git; \
+    apt-get autoremove -y; \
+    rm -rf /var/lib/apt/lists/*; \
+    rm -rf /root/.cache; \
+    rm requirements.txt; \
+    find . -name '__pycache__' -exec rm -r '{}' +; \
+    find . -name '*pyc' -exec rm -r '{}' +
 
-COPY . .
-
-RUN python manage.py compilemessages || true
-
-EXPOSE 8000
-
-ENTRYPOINT ["/taiga-back/docker/entrypoint.sh"]
+EXPOSE 8003
+ENTRYPOINT ["./docker/entrypoint.sh"]
