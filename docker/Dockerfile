@@ -18,8 +18,7 @@ RUN set -eux; \
     apt-get install -y \
        build-essential \
        git \
-       ca-certificates \
-       su-exec; \
+       ca-certificates; \
     python -m pip install --upgrade pip; \
     python -m pip install wheel; \
     python -m pip install -r requirements.txt; \
