@@ -16,7 +16,7 @@ chown -R taiga:taiga /taiga-protected
 # Start Taiga processes
 echo Starting Taiga Protected
 
-exec runuser taiga gunicorn server:app \
+exec runuser -u taiga -- gunicorn server:app \
     --name taiga_protected \
     --bind 0.0.0.0:8003 \
     --workers 4 \
